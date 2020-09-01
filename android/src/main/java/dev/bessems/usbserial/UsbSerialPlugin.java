@@ -10,8 +10,12 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.util.Log;
 
-import com.felhr.usbserial.UsbSerialDevice;
-import com.felhr.usbserial.UsbSerialInterface;
+//import com.felhr.usbserial.UsbSerialDevice;
+//import com.felhr.usbserial.UsbSerialInterface;
+
+import com.hoho.android.usbserial.driver.UsbSerialPort;
+import com.hoho.android.usbserial.driver.UsbSerialDriver;
+import com.hoho.android.usbserial.driver.UsbSerialProber;
 
 import java.util.HashMap;
 import java.util.List;
@@ -33,10 +37,14 @@ public class UsbSerialPlugin implements MethodCallHandler, EventChannel.StreamHa
     private final String TAG = UsbSerialPortAdapter.class.getSimpleName();
 
     private android.content.Context m_Context;
+
     private UsbManager m_Manager;
     private int m_InterfaceId;
     private Registrar m_Registrar;
     private EventChannel.EventSink m_EventSink;
+
+//    private enum UsbPermission { Unknown, Requested, Granted, Denied };
+//    private UsbPermission usbPermission = UsbPermission.Unknown;
 
     private static final String ACTION_USB_PERMISSION = "com.android.example.USB_PERMISSION";
     public static final String ACTION_USB_ATTACHED = "android.hardware.usb.action.USB_DEVICE_ATTACHED";
@@ -148,28 +156,62 @@ public class UsbSerialPlugin implements MethodCallHandler, EventChannel.StreamHa
         };
 
         try {
-            UsbDeviceConnection connection = m_Manager.openDevice(device);
+//            UsbDeviceConnection connection = m_Manager.openDevice(device);
+//
+//            if ( connection == null && allowAcquirePermission ) {
+//                acquirePermissions(device, cb);
+//                return;
+//            }
 
-            if ( connection == null && allowAcquirePermission ) {
-                acquirePermissions(device, cb);
+            UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
+//            if(driver == null) {
+//                driver = CustomProber.getCustomProber().probeDevice(device);
+//            }
+            if(driver == null) {
+                Log.d(TAG, "connection failed: no driver for device");
                 return;
             }
 
-            UsbSerialDevice serialDeviceDevice;
-            if ( type.equals("") ) {
-                serialDeviceDevice = UsbSerialDevice.createUsbSerialDevice(device, connection, iface);
-            } else {
-                serialDeviceDevice = UsbSerialDevice.createUsbSerialDevice(type, device, connection, iface);
+            int portNum = 0;
+            if(driver.getPorts().size() < portNum) {
+                Log.d(TAG, "connection failed: not enough ports at device");
+                return;
             }
 
-            if (serialDeviceDevice != null) {
+            UsbSerialPort usbSerialPort = driver.getPorts().get(portNum);
+            UsbDeviceConnection usbConnection = m_Manager.openDevice(driver.getDevice());
+
+
+//            if(usbConnection == null && usbPermission == UsbPermission.Unknown && !m_Manager.hasPermission(driver.getDevice())) {
+//                usbPermission = UsbPermission.Requested;
+//                PendingIntent usbPermissionIntent = PendingIntent.getBroadcast(m_Registrar.activity(), 0, new Intent(INTENT_ACTION_GRANT_USB), 0);
+//                m_Manager.requestPermission(driver.getDevice(), usbPermissionIntent);
+//                return;
+//            }
+//            if(usbConnection == null) {
+//                if (!usbManager.hasPermission(driver.getDevice()))
+//                    status("connection failed: permission denied");
+//                else
+//                    status("connection failed: open failed");
+//                return;
+//            }
+
+
+//            UsbSerialDevice serialDeviceDevice;
+//            if ( type.equals("") ) {
+//                serialDeviceDevice = UsbSerialDevice.createUsbSerialDevice(device, connection, iface);
+//            } else {
+//                serialDeviceDevice = UsbSerialDevice.createUsbSerialDevice(type, device, connection, iface);
+//            }
+//
+//            if (serialDeviceDevice != null) {
                 int interfaceId = m_InterfaceId++;
-                UsbSerialPortAdapter adapter = new UsbSerialPortAdapter(m_Registrar, interfaceId, connection, serialDeviceDevice);
+                UsbSerialPortAdapter adapter = new UsbSerialPortAdapter(m_Registrar, interfaceId, usbConnection, usbSerialPort);
                 result.success(adapter.getMethodChannelName());
                 Log.d(TAG, "success.");
                 return;
-            }
-            result.error(TAG, "Not an Serial device.", null);
+//            }
+//            result.error(TAG, "Not an Serial device.", null);
 
         } catch ( java.lang.SecurityException e ) {
 

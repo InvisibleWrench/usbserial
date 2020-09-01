@@ -58,11 +58,9 @@ class _MyAppState extends State<MyApp> {
     _deviceId = device.deviceId;
     await _port.setDTR(true);
     await _port.setRTS(true);
-    await _port.setPortParameters(
-        115200, UsbPort.DATABITS_8, UsbPort.STOPBITS_1, UsbPort.PARITY_NONE);
+    await _port.setPortParameters(115200, UsbPort.DATABITS_8, UsbPort.STOPBITS_1, UsbPort.PARITY_NONE);
 
-    _transaction = Transaction.stringTerminated(
-        _port.inputStream, Uint8List.fromList([13, 10]));
+    _transaction = Transaction.stringTerminated(_port.inputStream, Uint8List.fromList([13, 10]));
 
     _subscription = _transaction.stream.listen((String line) {
       setState(() {
@@ -88,13 +86,11 @@ class _MyAppState extends State<MyApp> {
       _ports.add(ListTile(
           leading: Icon(Icons.usb),
           title: Text(device.productName),
-          subtitle: Text(device.manufacturerName),
+          subtitle: Text(device.manufacturerName ?? "[manufacturer]"),
           trailing: RaisedButton(
-            child:
-                Text(_deviceId == device.deviceId ? "Disconnect" : "Connect"),
+            child: Text(_deviceId == device.deviceId ? "Disconnect" : "Connect"),
             onPressed: () {
-              _connectTo(_deviceId == device.deviceId ? null : device)
-                  .then((res) {
+              _connectTo(_deviceId == device.deviceId ? null : device).then((res) {
                 _getPorts();
               });
             },
@@ -132,11 +128,7 @@ class _MyAppState extends State<MyApp> {
       ),
       body: Center(
           child: Column(children: <Widget>[
-        Text(
-            _ports.length > 0
-                ? "Available Serial Ports"
-                : "No serial devices available",
-            style: Theme.of(context).textTheme.title),
+        Text(_ports.length > 0 ? "Available Serial Ports" : "No serial devices available", style: Theme.of(context).textTheme.title),
         ..._ports,
         Text('Status: $_status\n'),
         ListTile(

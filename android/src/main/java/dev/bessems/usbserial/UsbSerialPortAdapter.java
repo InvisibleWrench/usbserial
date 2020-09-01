@@ -5,8 +5,16 @@ import android.util.Log;
 import android.os.Handler;
 import android.os.Looper;
 
-import com.felhr.usbserial.UsbSerialDevice;
-import com.felhr.usbserial.UsbSerialInterface;
+//import com.felhr.usbserial.UsbSerialDevice;
+//import com.felhr.usbserial.UsbSerialInterface;
+
+import com.hoho.android.usbserial.driver.UsbSerialPort;
+import com.hoho.android.usbserial.util.SerialInputOutputManager;
+
+import java.util.concurrent.Executors;
+
+
+import java.io.IOException;
 
 import io.flutter.plugin.common.EventChannel;
 import io.flutter.plugin.common.MethodCall;
@@ -15,19 +23,24 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
 
-public class UsbSerialPortAdapter implements MethodCallHandler, EventChannel.StreamHandler {
+public class UsbSerialPortAdapter implements MethodCallHandler, EventChannel.StreamHandler, SerialInputOutputManager.Listener {
 
     private final String TAG = UsbSerialPortAdapter.class.getSimpleName();
 
     private int m_InterfaceId;
     private UsbDeviceConnection m_Connection;
-    private UsbSerialDevice m_SerialDevice;
+    private UsbSerialPort m_SerialDevice;
     private Registrar m_Registrar;
     private String m_MethodChannelName;
     private EventChannel.EventSink m_EventSink;
     private Handler m_handler;
 
-    UsbSerialPortAdapter(Registrar registrar, int interfaceId, UsbDeviceConnection connection, UsbSerialDevice serialDevice) {
+    private SerialInputOutputManager usbIoManager;
+
+    private static final int WRITE_WAIT_MILLIS = 2;
+    private static final int READ_WAIT_MILLIS = 2;
+
+    UsbSerialPortAdapter(Registrar registrar, int interfaceId, UsbDeviceConnection connection, UsbSerialPort serialDevice) {
         m_Registrar = registrar;
         m_InterfaceId = interfaceId;
         m_Connection = connection;
@@ -45,51 +58,78 @@ public class UsbSerialPortAdapter implements MethodCallHandler, EventChannel.Str
     }
 
     private void setPortParameters(int baudRate, int dataBits, int stopBits, int parity) {
-        m_SerialDevice.setBaudRate(baudRate);
-        m_SerialDevice.setDataBits(dataBits);
-        m_SerialDevice.setStopBits(stopBits);
-        m_SerialDevice.setParity(parity);
+        try {
+            m_SerialDevice.setParameters(baudRate, dataBits, stopBits, parity);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+//        m_SerialDevice.setBaudRate(baudRate);
+//        m_SerialDevice.setDataBits(dataBits);
+//        m_SerialDevice.setStopBits(stopBits);
+//        m_SerialDevice.setParity(parity);
     }
 
     private void setFlowControl( int flowControl ) {
-        m_SerialDevice.setFlowControl(flowControl);
+
+//        m_SerialDevice. setFlowControl(flowControl);
     }
 
-    private UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() {
-
-        @Override
-        public void onReceivedData(byte[] arg0)
-        {
-            if ( m_EventSink != null ) {
-                m_handler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if ( m_EventSink != null ) {
-                            m_EventSink.success(arg0);
-                        }
-                    }
-                });
-            }
-        }
-
-    };
+//    private UsbSerialInterface.UsbReadCallback mCallback = new UsbSerialInterface.UsbReadCallback() {
+//
+//        @Override
+//        public void onReceivedData(byte[] arg0)
+//        {
+//            if ( m_EventSink != null ) {
+//                m_handler.post(new Runnable() {
+//                    @Override
+//                    public void run() {
+//                        if ( m_EventSink != null ) {
+//                            m_EventSink.success(arg0);
+//                        }
+//                    }
+//                });
+//            }
+//        }
+//
+//    };
 
     private Boolean open() {
-        if ( m_SerialDevice.open() ) {
-            m_SerialDevice.read(mCallback);
+        try {
+            m_SerialDevice.open(m_Connection);
+            usbIoManager = new SerialInputOutputManager(m_SerialDevice, this);
+            Executors.newSingleThreadExecutor().submit(usbIoManager);
             return true;
-        } else {
+        } catch (IOException e) {
+            e.printStackTrace();
             return false;
         }
+
+//        if ( m_SerialDevice.open() ) {
+//            m_SerialDevice.read(mCallback);
+//            return true;
+//        } else {
+//            return false;
+//        }
     }
 
     private Boolean close() {
-        m_SerialDevice.close();
+//        m_SerialDevice.close();
+        usbIoManager.stop();
+        usbIoManager = null;
+        try {
+            m_SerialDevice.close();
+        } catch (IOException ignored) {}
+        m_SerialDevice = null;
         return true;
+
     }
 
     private void write( byte[] data ) {
-        m_SerialDevice.write(data);
+        try {
+            m_SerialDevice.write(data, WRITE_WAIT_MILLIS);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     // return true if the object is to be kept, false if it is to be destroyed.
@@ -120,19 +160,31 @@ public class UsbSerialPortAdapter implements MethodCallHandler, EventChannel.Str
 
             case "setDTR": {
                 boolean v = call.argument("value");
-                m_SerialDevice.setDTR(v);
+                try {
+                    m_SerialDevice.setDTR(v);
+
                 if (v == true) {
                     Log.e(TAG, "set DTR to true");
                 } else {
                     Log.e(TAG, "set DTR to false");
                 }
                 result.success(null);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    result.error(e.toString(), e.getLocalizedMessage(), null);
+                }
                 break;
             }
             case "setRTS": {
                 boolean v = call.argument("value");
-                m_SerialDevice.setRTS(v);
-                result.success(null);
+                try {
+                    m_SerialDevice.setRTS(v);
+                    result.success(null);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                    result.error(e.toString(), e.getLocalizedMessage(), null);
+                }
+
                 break;
             }
 
@@ -154,6 +206,23 @@ public class UsbSerialPortAdapter implements MethodCallHandler, EventChannel.Str
     }
 
 
+    @Override
+    public void onNewData(byte[] data) {
+//        if ( m_EventSink != null ) {
+//            m_EventSink.success(data);
+//        }
 
+//        if ( m_EventSink != null ) {
+                m_handler.post(() -> {
+                    if ( m_EventSink != null ) {
+                        m_EventSink.success(data);
+                    }
+                });
+//            }
+    }
 
+    @Override
+    public void onRunError(Exception e) {
+
+    }
 }
