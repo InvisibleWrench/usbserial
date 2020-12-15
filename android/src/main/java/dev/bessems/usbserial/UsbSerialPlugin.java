@@ -17,6 +17,7 @@ import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
 
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
@@ -164,9 +165,9 @@ public class UsbSerialPlugin implements MethodCallHandler, EventChannel.StreamHa
 //            }
 
             UsbSerialDriver driver = UsbSerialProber.getDefaultProber().probeDevice(device);
-//            if(driver == null) {
-//                driver = CustomProber.getCustomProber().probeDevice(device);
-//            }
+            if(driver == null) {
+                driver = CustomProber.getCustomProber().probeDevice(device);
+            }
             if(driver == null) {
                 Log.d(TAG, "connection failed: no driver for device");
                 return;
@@ -181,6 +182,10 @@ public class UsbSerialPlugin implements MethodCallHandler, EventChannel.StreamHa
             UsbSerialPort usbSerialPort = driver.getPorts().get(portNum);
             UsbDeviceConnection usbConnection = m_Manager.openDevice(driver.getDevice());
 
+            if ( usbConnection == null && allowAcquirePermission ) {
+                acquirePermissions(device, cb);
+                return;
+            }
 
 //            if(usbConnection == null && usbPermission == UsbPermission.Unknown && !m_Manager.hasPermission(driver.getDevice())) {
 //                usbPermission = UsbPermission.Requested;
@@ -188,13 +193,13 @@ public class UsbSerialPlugin implements MethodCallHandler, EventChannel.StreamHa
 //                m_Manager.requestPermission(driver.getDevice(), usbPermissionIntent);
 //                return;
 //            }
-//            if(usbConnection == null) {
-//                if (!usbManager.hasPermission(driver.getDevice()))
-//                    status("connection failed: permission denied");
-//                else
-//                    status("connection failed: open failed");
-//                return;
-//            }
+            if(usbConnection == null) {
+                if (!m_Manager.hasPermission(driver.getDevice()))
+                    Log.d(TAG, "connection failed: permission denied");
+                else
+                    Log.d(TAG,"connection failed: open failed");
+                return;
+            }
 
 
 //            UsbSerialDevice serialDeviceDevice;
